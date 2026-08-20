@@ -96,3 +96,38 @@ Consolidated understanding of common permission combinations:
 700 = only the owner has any access at all
 ```
 Read = 4, Write = 2, Execute = 1 — added together per group (owner/group/others) to form each digit.
+
+<img width="912" height="1009" alt="image" src="https://github.com/user-attachments/assets/7a00b6b3-7c4d-4ebe-9370-4ca3ef9614db" />
+# Ports, Nmap & Firewall (UFW)
+
+## Ports
+Ports identify what type of traffic is going where on a device. Common ones:
+- 22 = SSH
+- 80 = HTTP
+- 443 = HTTPS
+- 53 = DNS
+
+These are standard conventions, not hard rules — a service can be configured to run on a different port (sometimes done deliberately for security).
+
+## Scanning with Nmap
+Installed nmap and scanned the VM to see what ports were actually open:
+```
+sudo nmap localhost
+```
+Result showed port 22 (ssh) and 631 (ipp — CUPS printing) open, matching what was already known from earlier netstat output.
+
+## Configuring UFW (Firewall)
+```
+sudo ufw allow ssh
+sudo ufw enable
+sudo ufw status
+```
+Allowed SSH *before* enabling the firewall — enabling first would have blocked the active SSH connection and locked myself out, a common real-world mistake.
+
+Added an explicit deny rule to test blocking a specific port:
+```
+sudo ufw deny 631
+```
+
+## Key Lesson
+Re-ran nmap after adding the deny rule — port 631 still showed as open. This wasn't a failure: loopback traffic (a machine scanning itself via `localhost`/`127.0.0.1`) generally bypasses firewall filtering, since it's treated as trusted local traffic rather than real network traffic. The firewall rule was correctly configured and would block an actual external connection — properly testing it requires scanning from a separate machine on the network, not the same one.
