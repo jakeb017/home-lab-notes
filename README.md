@@ -45,3 +45,54 @@ Worked through how I'd actually handle a client call for a wifi issue where I ca
 5. If still broken, compare wifi vs mobile data to narrow down local network vs ISP issue
 6. Escalate to ISP or a technician if it's beyond a local fix
 7. Document what was tried and the outcome
+
+# SSH & Simulated Support Ticket
+
+## Setting Up SSH
+Installed and configured SSH on the VM to practice remote access, a core skill for real help desk and sysadmin work.
+
+```
+sudo apt install openssh-server
+sudo systemctl start ssh
+sudo systemctl enable ssh
+sudo systemctl status ssh
+```
+
+Confirmed it was actively listening on port 22 (`0.0.0.0` and `::`) via the systemd status log. Learned the difference between installing a service and actually starting/enabling it — a fresh install is inactive by default until explicitly started, and won't survive a reboot unless enabled.
+
+## Connecting via SSH
+```
+ssh jake@localhost
+```
+
+- First connection triggered a host authenticity/fingerprint check — SSH's way of protecting against man-in-the-middle attacks by confirming you trust this specific machine before connecting. Accepting it (`yes`) adds it to the local known_hosts list so future connections don't ask again.
+- Authenticated with the account password, then confirmed the session was genuinely active with `whoami` and `hostname`.
+- Exited cleanly with `exit`.
+
+**Troubleshooting note:** hit a keyboard layout issue where `@` produced `"` instead — traced this back to the VM's keyboard layout being set to US (`setxkbmap -query` showed `Layout: us`) rather than Australian. Worked around it in the short term by using `"` in place of `@`, since a layout fix via `setxkbmap` didn't take effect properly under the Xwayland session in use.
+
+## Real World Application
+Practiced logging into a different user's account over SSH (`ssh carlton@localhost`) to simulate remote support — logging in as the affected user directly rather than just using `sudo` as myself, to see the exact environment and permissions they're experiencing.
+
+## Simulated Support Ticket: Permission Denied
+Set up and resolved a realistic file permissions issue end to end:
+
+1. **Baseline confirmed** — created a file as carlton (`touch myfile.txt`), confirmed normal default permissions (`-rw-rw-r--`)
+2. **Problem simulated** — as jake, ran `sudo chmod 000 /home/carlton/myfile.txt` to strip all permissions from the file, simulating a genuine "can't access my file" ticket
+3. **Reported symptom** — logged back in as carlton, ran `cat myfile.txt`, got `Permission denied`
+4. **Diagnosed before fixing** — ran `ls -l myfile.txt` to actually confirm the fault (`----------`, zero permissions for anyone) rather than guessing at a cause
+5. **Applied the fix** — `chmod 664 myfile.txt`, restoring standard read/write access for the owner and group, read-only for others
+6. **Verified the fix** — ran `ls -l` again to confirm permissions were restored, then re-ran `cat myfile.txt` to confirm the file was genuinely accessible again, rather than assuming the permission change alone was proof enough
+
+This reflects the actual real-world troubleshooting workflow: reproduce/confirm the symptom, diagnose with evidence, apply the minimal fix needed, then verify the fix actually resolved the issue rather than just assuming it worked.
+
+## chmod Number Reference
+Consolidated understanding of common permission combinations:
+```
+777 = full access for everyone (rwx rwx rwx) — generally avoided, considered poor security practice
+755 = owner full access, group/others can read and execute but not write
+664 = owner and group can read/write, others read only
+644 = owner can read/write, others read only
+700 = only the owner has any access at all
+```
+Read = 4, Write = 2, Execute = 1 — added together per group (owner/group/others) to form each digit.
